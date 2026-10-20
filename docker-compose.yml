@@ -1,0 +1,60 @@
+# ============================================================================
+#  VulnLab  —  FOR LOCAL / LAB USE ONLY
+#
+#  Both ports below are published to 127.0.0.1 on purpose: the app and the
+#  database are reachable from YOUR machine, but not from other hosts on your
+#  network. Changing a mapping to "PORT:PORT" or "0.0.0.0:PORT:PORT" exposes a
+#  deliberately-insecure service (and an unauthenticated-by-default-creds
+#  database) to everything that can reach you. Only do that on a fully isolated
+#  lab network, and understand the risk first.
+# ============================================================================
+services:
+  vulnlab:
+    build: .
+    container_name: vulnlab
+    ports:
+      - "127.0.0.1:5000:5000"
+    restart: unless-stopped
+    depends_on:
+      - db
+
+  # -------------------------------------------------------------------------
+  #  [VULN] INSECURELY CONFIGURED, OPENLY EXPOSED DATABASE
+  #
+  #  Three misconfigurations stacked together, exactly as they occur in the
+  #  wild:
+  #    1. Weak default credentials  -> root / root  (and appuser / appuser,
+  #       the classic "username == password"). Trivially guessable.
+  #    2. Remote root allowed        -> MYSQL_ROOT_HOST='%' lets root connect
+  #       from any host, not just the DB's own localhost.
+  #    3. Port published             -> the server listens where clients can
+  #       reach it (here, your host's localhost).
+  #
+  #  Attack it like a real target:
+  #    nmap -sV -p 3306 127.0.0.1
+  #    mysql -h 127.0.0.1 -P 3306 -u root -proot
+  #    hydra -l root -P wordlist.txt mysql://127.0.0.1
+  #    sqlmap -d "mysql://root:root@127.0.0.1:3306/appdb" --tables
+  #
+  #  Payoff once in:
+  #    USE appdb; SELECT * FROM customers; SELECT * FROM app_secrets;
+  #
+  #  The fix: strong unique password, never expose the port beyond what needs
+  #  it, restrict root to localhost, and give the app a least-privilege user.
+  # -------------------------------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: vulnlab-db
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: root      # [VULN] weak, guessable default
+      MYSQL_ROOT_HOST: "%"           # [VULN] root reachable from any host
+      MYSQL_DATABASE: appdb
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: appuser        # [VULN] username == password
+    ports:
+      - "127.0.0.1:3306:3306"        # openly reachable from the host
+    volumes:
+      # Seed scripts run once, on first init of an empty data directory.
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped

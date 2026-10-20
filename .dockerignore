@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+vulnlab.db
+.git/
+.gitignore
+README*

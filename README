@@ -1,0 +1,14 @@
+This application contains INTENTIONAL security vulnerabilities for teaching
+and practice. It is the software equivalent of a crash-test dummy.
+
+It is created by the student ethical hacking organization, ITUnderground, at the IT-University of Copenhagen.
+
+Docker is required to run this project. 
+It can be downloaded in two forms: https://docs.docker.com/desktop/ 
+- Docker engine: https://docs.docker.com/engine/install/ 
+- Docker desktop (includes the docker engine): 
+
+To run this project, simply run this command in your terminal:
+```sh
+docker compose up
+```
